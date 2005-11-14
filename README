@@ -1,0 +1,98 @@
+NAME
+    Catalyst::Plugin::Session::Store::DBI - Store your sessions in a
+    database
+
+SYNOPSIS
+        # Create a table in your database for sessions
+        CREATE TABLE sessions (
+            id           char(40) primary key,
+            session_data text,
+            expires      int(10)
+        );
+
+        # In your app
+        use Catalyst qw/Session Session::Store::DBI Session::State::Cookie/;
+    
+        # Connect directly to the database
+        MyApp->config->{session} = {
+            expires   => 3600,
+            dbi_dsn   => 'dbi:mysql:database',
+            dbi_user  => 'foo',
+            dbi_pass  => 'bar',
+            dbi_table => 'sessions',
+        };
+    
+        # Or use an existing database handle from a DBIC/CDBI class
+        MyApp->config->{session} = {
+            expires   => 3600,
+            dbi_dbh   => 'MyApp::M::DBIC',
+            dbi_table => 'sessions',
+        };
+
+        # ... in an action:
+        $c->session->{foo} = 'bar'; # will be saved
+
+DESCRIPTION
+    This storage module will store session data in a database using DBI.
+
+CONFIGURATION
+    These parameters are placed in the configuration hash under the
+    "session" key.
+
+  expires
+    The expires column in your table will be set with the expiration value.
+    Note that no automatic cleanup is done on your session data, but you can
+    use the delete_expired_sessions method to perform clean up.
+
+  dbi_dbh
+    Pass in an existing $dbh or the class name of a DBIx::Class or
+    Class::DBI model. This method is recommended if you have other database
+    code in your application as it will avoid opening additional
+    connections.
+
+  dbi_dsn
+  dbi_user
+  dbi_pass
+    To connect directly to a database, specify the necessary dbi_dsn,
+    dbi_user, and dbi_pass options.
+
+  dbi_table
+    Enter the table name within your database where sessions will be stored.
+    This table must have at least 3 columns, id, session_data, and expires.
+    See the Schema section below for additional details. The table name
+    defaults to 'sessions'.
+
+SCHEMA
+    Your session table must contain at minimum the following 3 columns:
+
+        id           CHAR(40) PRIMARY KEY
+        session_data TEXT
+        expires      INT(10)
+
+    Session IDs are generated using SHA-1 by default and are therefore 40
+    characters long.
+
+    The session_data field should be a long text field. Session data is
+    encoded using Base64 before being stored in the database.
+
+METHODS
+  get_session_data
+  store_session_data
+  delete_session_data
+  delete_expired_sessions
+  setup_session
+    These are implementations of the required methods for a store. See
+    Catalyst::Plugin::Session::Store.
+
+INTERNAL METHODS
+  setup_actions
+SEE ALSO
+    Catalyst, Catalyst::Plugin::Session
+
+AUTHOR
+    Andy Grundman, <andy@hybridized.org>
+
+COPYRIGHT
+    This program is free software, you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
