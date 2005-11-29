@@ -9,21 +9,19 @@ use Test::More;
 
 BEGIN {
     eval { require Catalyst::Plugin::Session::State::Cookie }
-        or plan skip_all =>
-        "Catalyst::Plugin::Session::State::Cookie is required for this test";
+      or plan skip_all =>
+      "Catalyst::Plugin::Session::State::Cookie is required for this test";
 
     eval { require Test::WWW::Mechanize::Catalyst }
-        or plan skip_all =>
-        "Test::WWW::Mechanize::Catalyst is required for this test";
-        
+      or plan skip_all =>
+      "Test::WWW::Mechanize::Catalyst is required for this test";
+
     eval { require DBD::SQLite }
-        or plan skip_all =>
-        "DBD::SQLite is required for this test";
-        
+      or plan skip_all => "DBD::SQLite is required for this test";
+
     eval { require DBIx::Class }
-        or plan skip_all =>
-        "DBIx::Class is required for this test";
-        
+      or plan skip_all => "DBIx::Class is required for this test";
+
     plan tests => 30;
 }
 

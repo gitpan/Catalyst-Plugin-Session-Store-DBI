@@ -1,4 +1,7 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
-0.01
+0.02    2005-11-29 11:40:00
+        - Fixed tests.
+
+0.01    2005-11-14 13:02:00
         - initial release

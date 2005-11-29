@@ -9,17 +9,16 @@ use Test::More;
 
 BEGIN {
     eval { require Catalyst::Plugin::Session::State::Cookie }
-        or plan skip_all =>
-        "Catalyst::Plugin::Session::State::Cookie is required for this test";
+      or plan skip_all =>
+      "Catalyst::Plugin::Session::State::Cookie is required for this test";
 
     eval { require Test::WWW::Mechanize::Catalyst }
-        or plan skip_all =>
-        "Test::WWW::Mechanize::Catalyst is required for this test";
-        
+      or plan skip_all =>
+      "Test::WWW::Mechanize::Catalyst is required for this test";
+
     eval { require DBD::SQLite }
-        or plan skip_all =>
-        "DBD::SQLite is required for this test";
-        
+      or plan skip_all => "DBD::SQLite is required for this test";
+
     plan tests => 30;
 }
 
@@ -27,9 +26,10 @@ BEGIN {
 my $db_file = "$FindBin::Bin/tmp/session.db";
 unless ( -e $db_file ) {
     mkdir "$FindBin::Bin/tmp" or die $!;
-    my $sql = 'CREATE TABLE session (id TEXT PRIMARY KEY, session TEXT, expires INT);';
-    my $dbh = DBI->connect( "dbi:SQLite:$db_file" ) or die $DBI::errstr;
-    $dbh->do( $sql );
+    my $sql =
+      'CREATE TABLE sessions (id TEXT PRIMARY KEY, session_data TEXT, expires INT);';
+    my $dbh = DBI->connect("dbi:SQLite:$db_file") or die $DBI::errstr;
+    $dbh->do($sql);
     $dbh->disconnect;
 }
 

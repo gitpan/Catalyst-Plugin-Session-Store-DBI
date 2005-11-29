@@ -8,104 +8,110 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-__PACKAGE__->mk_classdata( '_session_dbh' );
+__PACKAGE__->mk_classdata('_session_dbh');
 
 sub get_session_data {
     my ( $c, $sid ) = @_;
-    
+
     my $table = $c->config->{session}->{dbi_table};
-    my $sth = $c->_session_dbh->prepare_cached( 
-        "SELECT session_data FROM $table WHERE id = ?" );
-    $sth->execute( $sid );
+    my $sth   =
+      $c->_session_dbh->prepare_cached(
+        "SELECT session_data FROM $table WHERE id = ?");
+    $sth->execute($sid);
     my ($session) = $sth->fetchrow_array;
     $sth->finish;
-    if ( $session ) {
-        return thaw( decode_base64( $session ) );
+    if ($session) {
+        return thaw( decode_base64($session) );
     }
     return;
 }
 
 sub store_session_data {
     my ( $c, $sid, $session ) = @_;
-    
+
     my $table = $c->config->{session}->{dbi_table};
-    
+
     # check for existing record
-    my $sth = $c->_session_dbh->prepare_cached(
-        "SELECT 1 FROM $table WHERE id = ?" );
-    $sth->execute( $sid );
+    my $sth =
+      $c->_session_dbh->prepare_cached("SELECT 1 FROM $table WHERE id = ?");
+    $sth->execute($sid);
     my ($exists) = $sth->fetchrow_array;
     $sth->finish;
-    
+
     # update or insert as needed
-    my $sql = ($exists)
-        ? "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?"
-        : "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)";
-    my $sta = $c->_session_dbh->prepare_cached( $sql );
-    my $frozen = encode_base64( nfreeze( $session ) );
+    my $sql =
+      ($exists)
+      ? "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?"
+      : "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)";
+    my $sta    = $c->_session_dbh->prepare_cached($sql);
+    my $frozen = encode_base64( nfreeze($session) );
     $sta->execute( $frozen, $session->{__expires}, $sid );
-    
+
     return;
 }
 
 sub delete_session_data {
     my ( $c, $sid ) = @_;
-    
+
     my $table = $c->config->{session}->{dbi_table};
-    my $sth = $c->_session_dbh->prepare(
-        "DELETE FROM $table WHERE id = ?" );
-    $sth->execute( $sid );
-    
+    my $sth   = $c->_session_dbh->prepare("DELETE FROM $table WHERE id = ?");
+    $sth->execute($sid);
+
     return;
 }
 
 sub delete_expired_sessions {
     my $c = shift;
-    
+
     my $table = $c->config->{session}->{dbi_table};
-    my $sth = $c->_session_dbh->prepare(
-        "DELETE FROM $table WHERE expires < ?" );
-    $sth->execute( time );
-    
+    my $sth = $c->_session_dbh->prepare("DELETE FROM $table WHERE expires < ?");
+    $sth->execute(time);
+
     return;
-}    
+}
 
 sub setup_session {
     my $c = shift;
-    
+
     $c->NEXT::setup_session(@_);
-    
+
     $c->config->{session}->{dbi_table} ||= 'sessions';
     my $cfg = $c->config->{session};
 
     if ( $cfg->{dbi_dsn} ) {
         my @dsn = grep { defined $_ } @{$cfg}{qw/dbi_dsn dbi_user dbi_pass/};
-        my $dbh = DBI->connect_cached( @dsn, {
-            AutoCommit => 1,
-            RaiseError => 1,
-        } ) or Catalyst::Exception->throw( message => $DBI::errstr );
-        $c->_session_dbh( $dbh );
+        my $dbh = DBI->connect_cached(
+            @dsn,
+            {
+                AutoCommit => 1,
+                RaiseError => 1,
+            }
+          )
+          or Catalyst::Exception->throw( message => $DBI::errstr );
+        $c->_session_dbh($dbh);
     }
 }
 
 sub setup_actions {
     my $c = shift;
-   
+
     $c->NEXT::setup_actions(@_);
-    
+
     # DBIC/CDBI classes are not yet loaded during setup(), so we wait until
     # setup_actions to load them
 
     my $cfg = $c->config->{session};
-      
+
     if ( $cfg->{dbi_dbh} ) {
         if ( ref $cfg->{dbi_dbh} ) {
+
             # use an existing db handle
             $c->_session_dbh( $cfg->{dbi_dbh} );
         }
         else {
+
             # use a DBIC/CDBI class
             my $class = $cfg->{dbi_dbh};
             my $dbh;
@@ -113,17 +119,15 @@ sub setup_actions {
             if ($@) {
                 eval { $dbh = $class->db_Main };
                 if ($@) {
-                    Catalyst::Exception->throw( message => 
-                          "$class does not appear to be a DBIx::Class or "
-                        . "Class::DBI model; $@"
-                    );
+                    Catalyst::Exception->throw( message =>
+                            "$class does not appear to be a DBIx::Class or "
+                          . "Class::DBI model; $@" );
                 }
-            }  
-            $c->_session_dbh( $dbh );
+            }
+            $c->_session_dbh($dbh);
         }
     }
 }
-    
 
 1;
 __END__

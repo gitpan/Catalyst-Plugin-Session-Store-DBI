@@ -8,19 +8,19 @@ our $VERSION = '0.01';
 
 our $db_file = "$FindBin::Bin/tmp/session.db";
 __PACKAGE__->config(
-    name => __PACKAGE__,
+    name    => __PACKAGE__,
     session => {
         expires => 3600,
         dbi_dsn => "dbi:SQLite:$db_file",
     }
 );
 
-__PACKAGE__->setup( qw/Session Session::Store::DBI Session::State::Cookie/ );
+__PACKAGE__->setup(qw/Session Session::Store::DBI Session::State::Cookie/);
 
 sub login : Global {
     my ( $self, $c ) = @_;
     $c->session;
-    $c->res->output( 'logged in' );
+    $c->res->output('logged in');
 }
 
 sub logout : Global {
@@ -33,11 +33,11 @@ sub logout : Global {
 sub page : Global {
     my ( $self, $c ) = @_;
     if ( $c->sessionid ) {
-        $c->res->output( 'you are logged in' );
+        $c->res->output('you are logged in');
         $c->session->{counter}++;
     }
     else {
-        $c->res->output( 'please login' );
+        $c->res->output('please login');
     }
 }
 
