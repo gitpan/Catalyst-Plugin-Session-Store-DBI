@@ -1,5 +1,8 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.04    2005-12-15 15:15:00
+        - Fixed id column size in Synopsis.
+
 0.03    2005-12-15 11:30:00
         - Refactored to better handle dbh connection/reconnection.
         - Cache prepared SQL statements to improve performance.

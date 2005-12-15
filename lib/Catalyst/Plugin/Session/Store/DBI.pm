@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -208,7 +208,7 @@ Catalyst::Plugin::Session::Store::DBI - Store your sessions in a database
 
     # Create a table in your database for sessions
     CREATE TABLE sessions (
-        id           char(40) primary key,
+        id           char(72) primary key,
         session_data text,
         expires      int(10)
     );
@@ -277,9 +277,9 @@ to 'sessions'.
 
 Your 'sessions' table must contain at minimum the following 3 columns:
 
-    id           CHAR(72) PRIMARY KEY
-    session_data TEXT
-    expires      INT(10)
+    id           char(72) primary key
+    session_data text
+    expires      int(10)
 
 The 'id' column should probably be 72 characters. It needs to handle the
 longest string that can be returned by
