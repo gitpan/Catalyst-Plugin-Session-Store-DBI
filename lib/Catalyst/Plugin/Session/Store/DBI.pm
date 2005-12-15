@@ -8,20 +8,22 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 __PACKAGE__->mk_classdata('_session_dbh');
+__PACKAGE__->mk_classdata('_sth_get_session_data');
+__PACKAGE__->mk_classdata('_sth_check_existing');
+__PACKAGE__->mk_classdata('_sth_update_session');
+__PACKAGE__->mk_classdata('_sth_insert_session');
+__PACKAGE__->mk_classdata('_sth_delete_session');
+__PACKAGE__->mk_classdata('_sth_delete_expired_sessions');
 
 sub get_session_data {
     my ( $c, $sid ) = @_;
 
-    my $table = $c->config->{session}->{dbi_table};
-    my $sth   =
-      $c->_session_dbh->prepare_cached(
-        "SELECT session_data FROM $table WHERE id = ?");
+    my $sth = $c->_session_sth('get_session_data');
     $sth->execute($sid);
     my ($session) = $sth->fetchrow_array;
-    $sth->finish;
     if ($session) {
         return thaw( decode_base64($session) );
     }
@@ -31,21 +33,16 @@ sub get_session_data {
 sub store_session_data {
     my ( $c, $sid, $session ) = @_;
 
-    my $table = $c->config->{session}->{dbi_table};
-
     # check for existing record
-    my $sth =
-      $c->_session_dbh->prepare_cached("SELECT 1 FROM $table WHERE id = ?");
+    my $sth = $c->_session_sth('check_existing');
     $sth->execute($sid);
     my ($exists) = $sth->fetchrow_array;
-    $sth->finish;
 
     # update or insert as needed
-    my $sql =
-      ($exists)
-      ? "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?"
-      : "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)";
-    my $sta    = $c->_session_dbh->prepare_cached($sql);
+    my $sta =
+        ($exists)
+        ? $c->_session_sth('update_session')
+        : $c->_session_sth('insert_session');
     my $frozen = encode_base64( nfreeze($session) );
     $sta->execute( $frozen, $session->{__expires}, $sid );
 
@@ -55,8 +52,7 @@ sub store_session_data {
 sub delete_session_data {
     my ( $c, $sid ) = @_;
 
-    my $table = $c->config->{session}->{dbi_table};
-    my $sth   = $c->_session_dbh->prepare("DELETE FROM $table WHERE id = ?");
+    my $sth = $c->_session_sth('delete_session');
     $sth->execute($sid);
 
     return;
@@ -65,11 +61,33 @@ sub delete_session_data {
 sub delete_expired_sessions {
     my $c = shift;
 
-    my $table = $c->config->{session}->{dbi_table};
-    my $sth = $c->_session_dbh->prepare("DELETE FROM $table WHERE expires < ?");
+    my $sth = $c->_session_sth('delete_expired_sessions');
     $sth->execute(time);
 
     return;
+}
+
+sub prepare {
+    my $c = shift;
+
+    my $cfg = $c->config->{session};
+
+    # If using DBIC/CDBI, always grab their dbh
+    if ( $cfg->{dbi_dbh} ) {
+        $c->_session_dbic_connect();
+    }
+    else {
+
+        # make sure the database is still connected
+        eval { $c->_session_dbh->ping; };
+        if ($@) {
+
+            # reconnect
+            $c->_session_dbi_connect();
+        }
+    }
+
+    $c->NEXT::prepare(@_);
 }
 
 sub setup_session {
@@ -78,29 +96,28 @@ sub setup_session {
     $c->NEXT::setup_session(@_);
 
     $c->config->{session}->{dbi_table} ||= 'sessions';
+}
+
+sub _session_dbi_connect {
+    my $c = shift;
+
     my $cfg = $c->config->{session};
 
     if ( $cfg->{dbi_dsn} ) {
         my @dsn = grep { defined $_ } @{$cfg}{qw/dbi_dsn dbi_user dbi_pass/};
-        my $dbh = DBI->connect_cached(
+        my $dbh = DBI->connect(
             @dsn,
-            {
-                AutoCommit => 1,
+            {   AutoCommit => 1,
                 RaiseError => 1,
             }
-          )
-          or Catalyst::Exception->throw( message => $DBI::errstr );
+            )
+            or Catalyst::Exception->throw( message => $DBI::errstr );
         $c->_session_dbh($dbh);
     }
 }
 
-sub setup_actions {
+sub _session_dbic_connect {
     my $c = shift;
-
-    $c->NEXT::setup_actions(@_);
-
-    # DBIC/CDBI classes are not yet loaded during setup(), so we wait until
-    # setup_actions to load them
 
     my $cfg = $c->config->{session};
 
@@ -108,6 +125,10 @@ sub setup_actions {
         if ( ref $cfg->{dbi_dbh} ) {
 
             # use an existing db handle
+            if ( !$cfg->{dbi_dbh}->{Active} ) {
+                Catalyst::Exception->throw( message =>
+                        'Session: Database handle supplied is not active' );
+            }
             $c->_session_dbh( $cfg->{dbi_dbh} );
         }
         else {
@@ -120,11 +141,58 @@ sub setup_actions {
                 eval { $dbh = $class->db_Main };
                 if ($@) {
                     Catalyst::Exception->throw( message =>
-                            "$class does not appear to be a DBIx::Class or "
-                          . "Class::DBI model; $@" );
+                              "$class does not appear to be a DBIx::Class or "
+                            . "Class::DBI model; $@" );
                 }
             }
             $c->_session_dbh($dbh);
+        }
+    }
+}
+
+# Prepares SQL statements as needed
+sub _session_sth {
+    my ( $c, $key ) = @_;
+
+    my $table = $c->config->{session}->{dbi_table};
+
+    my %sql = (
+        get_session_data => "SELECT session_data FROM $table WHERE id = ?",
+        check_existing   => "SELECT 1 FROM $table WHERE id = ?",
+        update_session   =>
+            "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?",
+        insert_session =>
+            "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)",
+        delete_session          => "DELETE FROM $table WHERE id = ?",
+        delete_expired_sessions => "DELETE FROM $table WHERE expires < ?",
+    );
+
+    if ( $sql{$key} ) {
+        my $accessor = "_sth_$key";
+        if ( !defined $c->$accessor ) {
+            $c->$accessor( $c->_session_dbh->prepare( $sql{$key} ) );
+        }
+        return $c->$accessor;
+    }
+    return;
+}
+
+# close any active sth's to avoid warnings
+sub DESTROY {
+    my $c = shift;
+    $c->NEXT::DESTROY(@_);
+
+    my @handles = qw/get_session_data
+        check_existing
+        update_session
+        insert_session
+        delete_session
+        delete_expired_sessions/;
+
+    for my $key (@handles) {
+        my $accessor = "_sth_$key";
+        if ( defined $c->$accessor && $c->$accessor->{Active} ) {
+            $c->$accessor->finish;
         }
     }
 }
@@ -207,16 +275,19 @@ to 'sessions'.
 
 =head1 SCHEMA
 
-Your session table must contain at minimum the following 3 columns:
+Your 'sessions' table must contain at minimum the following 3 columns:
 
-    id           CHAR(40) PRIMARY KEY
+    id           CHAR(72) PRIMARY KEY
     session_data TEXT
     expires      INT(10)
 
-Session IDs are generated using SHA-1 by default and are therefore 40
-characters long.
+The 'id' column should probably be 72 characters. It needs to handle the
+longest string that can be returned by
+L<Catalyst::Plugin::Authentication/generate_session_id>, plus another 8
+characters for internal use. This is less than 72 characters in practice when
+SHA-1 or MD5 are used, but SHA-256 will need all those characters.
 
-The session_data field should be a long text field.  Session data is encoded
+The 'session_data' field should be a long text field.  Session data is encoded
 using Base64 before being stored in the database.
 
 =head1 METHODS
@@ -235,6 +306,8 @@ These are implementations of the required methods for a store. See
 L<Catalyst::Plugin::Session::Store>.
 
 =head1 INTERNAL METHODS
+
+=head2 prepare
 
 =head2 setup_actions
 

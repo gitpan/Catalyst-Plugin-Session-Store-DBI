@@ -1,5 +1,10 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.03    2005-12-15 11:30:00
+        - Refactored to better handle dbh connection/reconnection.
+        - Cache prepared SQL statements to improve performance.
+        - Changed recommended id column size from 40 to 72.
+
 0.02    2005-11-29 11:40:00
         - Fixed tests.
 

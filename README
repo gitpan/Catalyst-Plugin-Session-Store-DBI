@@ -63,16 +63,19 @@ CONFIGURATION
     defaults to 'sessions'.
 
 SCHEMA
-    Your session table must contain at minimum the following 3 columns:
+    Your 'sessions' table must contain at minimum the following 3 columns:
 
-        id           CHAR(40) PRIMARY KEY
+        id           CHAR(72) PRIMARY KEY
         session_data TEXT
         expires      INT(10)
 
-    Session IDs are generated using SHA-1 by default and are therefore 40
-    characters long.
+    The 'id' column should probably be 72 characters. It needs to handle the
+    longest string that can be returned by "generate_session_id" in
+    Catalyst::Plugin::Authentication, plus another 8 characters for internal
+    use. This is less than 72 characters in practice when SHA-1 or MD5 are
+    used, but SHA-256 will need all those characters.
 
-    The session_data field should be a long text field. Session data is
+    The 'session_data' field should be a long text field. Session data is
     encoded using Base64 before being stored in the database.
 
 METHODS
@@ -85,6 +88,7 @@ METHODS
     Catalyst::Plugin::Session::Store.
 
 INTERNAL METHODS
+  prepare
   setup_actions
 SEE ALSO
     Catalyst, Catalyst::Plugin::Session
