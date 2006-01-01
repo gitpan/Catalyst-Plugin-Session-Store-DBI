@@ -8,52 +8,76 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
+__PACKAGE__->mk_classdata('_sth_get_expires');
 __PACKAGE__->mk_classdata('_sth_check_existing');
 __PACKAGE__->mk_classdata('_sth_update_session');
 __PACKAGE__->mk_classdata('_sth_insert_session');
+__PACKAGE__->mk_classdata('_sth_update_expires');
 __PACKAGE__->mk_classdata('_sth_delete_session');
 __PACKAGE__->mk_classdata('_sth_delete_expired_sessions');
 
 sub get_session_data {
-    my ( $c, $sid ) = @_;
-
-    my $sth = $c->_session_sth('get_session_data');
-    $sth->execute($sid);
-    my ($session) = $sth->fetchrow_array;
-    if ($session) {
-        return thaw( decode_base64($session) );
+    my ( $c, $key ) = @_;
+    
+    # expires:sid expects an expiration time
+    if ( my ($sid) = $key =~ /^expires:(.*)/ ) {
+        $key = "session:$sid";
+        my $sth = $c->_session_sth('get_expires');
+        $sth->execute($key);
+        my ($expires) = $sth->fetchrow_array;
+        return $expires;
+    }
+    else {
+        my $sth = $c->_session_sth('get_session_data');
+        $sth->execute($key);
+        if ( my ($data) = $sth->fetchrow_array ) {
+            return thaw( decode_base64($data) );
+        }
     }
     return;
 }
 
 sub store_session_data {
-    my ( $c, $sid, $session ) = @_;
+    my ( $c, $key, $data ) = @_;
+    
+    # expires:sid keys only update the expiration time
+    if ( my ($sid) = $key =~ /^expires:(.*)/ ) {
+        $key = "session:$sid";
+        my $sth = $c->_session_sth('update_expires');
+        $sth->execute( $c->session_expires, $key );
+    }
+    else {
+        # check for existing record
+        my $sth = $c->_session_sth('check_existing');
+        $sth->execute($key);
+        my ($exists) = $sth->fetchrow_array;
+    
+        # update or insert as needed
+        my $sta = ($exists)
+            ? $c->_session_sth('update_session')
+            : $c->_session_sth('insert_session');
 
-    # check for existing record
-    my $sth = $c->_session_sth('check_existing');
-    $sth->execute($sid);
-    my ($exists) = $sth->fetchrow_array;
-
-    # update or insert as needed
-    my $sta =
-        ($exists)
-        ? $c->_session_sth('update_session')
-        : $c->_session_sth('insert_session');
-    my $frozen = encode_base64( nfreeze($session) );
-    $sta->execute( $frozen, $session->{__expires}, $sid );
-
+        my $frozen = encode_base64( nfreeze($data) );
+        my $expires = $key =~ /^(?:session|flash):/ 
+                    ? $c->session_expires 
+                    : undef;
+        $sta->execute( $frozen, $expires, $key );
+    }
+    
     return;
 }
 
 sub delete_session_data {
-    my ( $c, $sid ) = @_;
+    my ( $c, $key ) = @_;
+    
+    return if $key =~ /^expires/;
 
     my $sth = $c->_session_sth('delete_session');
-    $sth->execute($sid);
+    $sth->execute($key);
 
     return;
 }
@@ -77,11 +101,9 @@ sub prepare {
         $c->_session_dbic_connect();
     }
     else {
-
         # make sure the database is still connected
-        eval { $c->_session_dbh->ping; };
+        eval { $c->_session_dbh->ping };
         if ($@) {
-
             # reconnect
             $c->_session_dbi_connect();
         }
@@ -110,8 +132,7 @@ sub _session_dbi_connect {
             {   AutoCommit => 1,
                 RaiseError => 1,
             }
-            )
-            or Catalyst::Exception->throw( message => $DBI::errstr );
+        ) or Catalyst::Exception->throw( message => $DBI::errstr );
         $c->_session_dbh($dbh);
     }
 }
@@ -142,7 +163,7 @@ sub _session_dbic_connect {
                 if ($@) {
                     Catalyst::Exception->throw( message =>
                               "$class does not appear to be a DBIx::Class or "
-                            . "Class::DBI model; $@" );
+                            . "Class::DBI model: $@" );
                 }
             }
             $c->_session_dbh($dbh);
@@ -157,14 +178,22 @@ sub _session_sth {
     my $table = $c->config->{session}->{dbi_table};
 
     my %sql = (
-        get_session_data => "SELECT session_data FROM $table WHERE id = ?",
-        check_existing   => "SELECT 1 FROM $table WHERE id = ?",
-        update_session   =>
+        get_session_data        =>
+            "SELECT session_data FROM $table WHERE id = ?",
+        get_expires             =>
+            "SELECT expires FROM $table WHERE id = ?",
+        check_existing          =>
+            "SELECT 1 FROM $table WHERE id = ?",
+        update_session          =>
             "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?",
-        insert_session =>
+        insert_session          =>
             "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)",
-        delete_session          => "DELETE FROM $table WHERE id = ?",
-        delete_expired_sessions => "DELETE FROM $table WHERE expires < ?",
+        update_expires          =>
+            "UPDATE $table SET expires = ? WHERE id = ?",
+        delete_session          =>
+            "DELETE FROM $table WHERE id = ?",
+        delete_expired_sessions =>
+            "DELETE FROM $table WHERE expires IS NOT NULL AND expires < ?",
     );
 
     if ( $sql{$key} ) {
@@ -182,10 +211,13 @@ sub DESTROY {
     my $c = shift;
     $c->NEXT::DESTROY(@_);
 
-    my @handles = qw/get_session_data
+    my @handles = qw/
+        get_session_data
+        get_expires
         check_existing
         update_session
         insert_session
+        update_expires
         delete_session
         delete_expired_sessions/;
 
@@ -248,7 +280,9 @@ key.
 
 The expires column in your table will be set with the expiration value.
 Note that no automatic cleanup is done on your session data, but you can use
-the delete_expired_sessions method to perform clean up.
+the delete_expired_sessions method to perform clean up.  You can make use of
+the L<Catalyst::Plugin::Scheduler> plugin to schedule automated session
+cleanup.
 
 =head2 dbi_dbh
 
@@ -287,8 +321,11 @@ L<Catalyst::Plugin::Authentication/generate_session_id>, plus another 8
 characters for internal use. This is less than 72 characters in practice when
 SHA-1 or MD5 are used, but SHA-256 will need all those characters.
 
-The 'session_data' field should be a long text field.  Session data is encoded
-using Base64 before being stored in the database.
+The 'session_data' column should be a long text field.  Session data is
+encoded using Base64 before being stored in the database.
+
+The 'expires' column stores the future expiration time of the session.  This
+may be null for per-user and flash sessions.
 
 =head1 METHODS
 
@@ -313,7 +350,7 @@ L<Catalyst::Plugin::Session::Store>.
 
 =head1 SEE ALSO
 
-L<Catalyst>, L<Catalyst::Plugin::Session>
+L<Catalyst>, L<Catalyst::Plugin::Session>, L<Catalyst::Plugin::Scheduler>
 
 =head1 AUTHOR
 

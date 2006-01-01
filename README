@@ -12,8 +12,8 @@ SYNOPSIS
 
         # In your app
         use Catalyst qw/Session Session::Store::DBI Session::State::Cookie/;
-    
-        # Connect directly to the database
+        
+    # Connect directly to the database
         MyApp->config->{session} = {
             expires   => 3600,
             dbi_dsn   => 'dbi:mysql:database',
@@ -21,8 +21,8 @@ SYNOPSIS
             dbi_pass  => 'bar',
             dbi_table => 'sessions',
         };
-    
-        # Or use an existing database handle from a DBIC/CDBI class
+        
+    # Or use an existing database handle from a DBIC/CDBI class
         MyApp->config->{session} = {
             expires   => 3600,
             dbi_dbh   => 'MyApp::M::DBIC',
@@ -42,7 +42,9 @@ CONFIGURATION
   expires
     The expires column in your table will be set with the expiration value.
     Note that no automatic cleanup is done on your session data, but you can
-    use the delete_expired_sessions method to perform clean up.
+    use the delete_expired_sessions method to perform clean up. You can make
+    use of the Catalyst::Plugin::Scheduler plugin to schedule automated
+    session cleanup.
 
   dbi_dbh
     Pass in an existing $dbh or the class name of a DBIx::Class or
@@ -75,8 +77,11 @@ SCHEMA
     use. This is less than 72 characters in practice when SHA-1 or MD5 are
     used, but SHA-256 will need all those characters.
 
-    The 'session_data' field should be a long text field. Session data is
+    The 'session_data' column should be a long text field. Session data is
     encoded using Base64 before being stored in the database.
+
+    The 'expires' column stores the future expiration time of the session.
+    This may be null for per-user and flash sessions.
 
 METHODS
   get_session_data
@@ -91,7 +96,7 @@ INTERNAL METHODS
   prepare
   setup_actions
 SEE ALSO
-    Catalyst, Catalyst::Plugin::Session
+    Catalyst, Catalyst::Plugin::Session, Catalyst::Plugin::Scheduler
 
 AUTHOR
     Andy Grundman, <andy@hybridized.org>

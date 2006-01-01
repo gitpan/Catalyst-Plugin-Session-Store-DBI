@@ -1,5 +1,8 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.05
+        - Updated to support changes to the Session API.
+
 0.04    2005-12-15 15:15:00
         - Fixed id column size in Synopsis.
 

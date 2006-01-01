@@ -1,18 +1,18 @@
 ---
 name: Catalyst-Plugin-Session-Store-DBI
-version: 0.04
+version: 0.05
 author:
   - 'Andy Grundman, <andy@hybridized.org>'
 abstract: Store your sessions in a database
 license: perl
 requires:
   Catalyst: 5.49
-  Catalyst::Plugin::Session: 0
+  Catalyst::Plugin::Session: 0.05
   DBI: 0
   MIME::Base64: 0
   Storable: 0
 provides:
   Catalyst::Plugin::Session::Store::DBI:
     file: lib/Catalyst/Plugin/Session/Store/DBI.pm
-    version: 0.04
+    version: 0.05
 generated_by: Module::Build version 0.2611
