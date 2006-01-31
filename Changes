@@ -1,6 +1,10 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
-0.05
+0.06    2006-01-30 22:15:00
+        - Throw an exception if the user has not fully configured sessions.
+        - Allow users to override DBI connect options via dbi_options param.
+
+0.05    2006-01-01 04:35:00
         - Updated to support changes to the Session API.
 
 0.04    2005-12-15 15:15:00

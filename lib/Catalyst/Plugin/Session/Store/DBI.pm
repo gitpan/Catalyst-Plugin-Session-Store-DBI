@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -118,6 +118,15 @@ sub setup_session {
     $c->NEXT::setup_session(@_);
 
     $c->config->{session}->{dbi_table} ||= 'sessions';
+    
+    unless ( $c->config->{session}->{dbi_dbh} 
+          || $c->config->{session}->{dbi_dsn} 
+    ) {
+        Catalyst::Exception->throw( 
+            message => 'Session::Store::DBI: No session configuration found, '
+                     . 'please configure dbi_dbh or dbi_dsn'
+        );
+    }
 }
 
 sub _session_dbi_connect {
@@ -126,12 +135,19 @@ sub _session_dbi_connect {
     my $cfg = $c->config->{session};
 
     if ( $cfg->{dbi_dsn} ) {
-        my @dsn = grep { defined $_ } @{$cfg}{qw/dbi_dsn dbi_user dbi_pass/};
+
+        # Allow user-supplied options.
+        my %options = (
+            AutoCommit => 1,
+            RaiseError => 1,
+            %{ $cfg->{dbi_options} || {} }
+        );
+
         my $dbh = DBI->connect(
-            @dsn,
-            {   AutoCommit => 1,
-                RaiseError => 1,
-            }
+            $cfg->{'dbi_dsn'},
+            $cfg->{'dbi_user'},
+            $cfg->{'dbi_pass'},
+            \%options,
         ) or Catalyst::Exception->throw( message => $DBI::errstr );
         $c->_session_dbh($dbh);
     }
@@ -297,8 +313,12 @@ connections.
 
 =head2 dbi_pass
 
+=head2 dbi_options
+
 To connect directly to a database, specify the necessary dbi_dsn, dbi_user,
-and dbi_pass options.
+and dbi_pass options.  If you need to supply your own options to DBI, you
+may do so by passing a hashref to dbi_options.  The default options are
+AutoCommit => 1 and RaiseError => 1.
 
 =head2 dbi_table
 

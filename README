@@ -12,8 +12,8 @@ SYNOPSIS
 
         # In your app
         use Catalyst qw/Session Session::Store::DBI Session::State::Cookie/;
-        
-    # Connect directly to the database
+    
+        # Connect directly to the database
         MyApp->config->{session} = {
             expires   => 3600,
             dbi_dsn   => 'dbi:mysql:database',
@@ -21,8 +21,8 @@ SYNOPSIS
             dbi_pass  => 'bar',
             dbi_table => 'sessions',
         };
-        
-    # Or use an existing database handle from a DBIC/CDBI class
+    
+        # Or use an existing database handle from a DBIC/CDBI class
         MyApp->config->{session} = {
             expires   => 3600,
             dbi_dbh   => 'MyApp::M::DBIC',
@@ -55,8 +55,11 @@ CONFIGURATION
   dbi_dsn
   dbi_user
   dbi_pass
+  dbi_options
     To connect directly to a database, specify the necessary dbi_dsn,
-    dbi_user, and dbi_pass options.
+    dbi_user, and dbi_pass options. If you need to supply your own options
+    to DBI, you may do so by passing a hashref to dbi_options. The default
+    options are AutoCommit => 1 and RaiseError => 1.
 
   dbi_table
     Enter the table name within your database where sessions will be stored.
