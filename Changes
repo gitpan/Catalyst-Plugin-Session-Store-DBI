@@ -1,5 +1,8 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.07    2006-04-07 11:35:00
+        - Added support for DBIx::Class schema models. (ejh)
+
 0.06    2006-01-30 22:15:00
         - Throw an exception if the user has not fully configured sessions.
         - Allow users to override DBI connect options via dbi_options param.

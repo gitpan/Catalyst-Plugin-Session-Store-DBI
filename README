@@ -48,9 +48,11 @@ CONFIGURATION
 
   dbi_dbh
     Pass in an existing $dbh or the class name of a DBIx::Class or
-    Class::DBI model. This method is recommended if you have other database
-    code in your application as it will avoid opening additional
-    connections.
+    Class::DBI model. DBIx::Class schema is also supported by setting
+    dbi_dbh to the name of your schema model.
+
+    This method is recommended if you have other database code in your
+    application as it will avoid opening additional connections.
 
   dbi_dsn
   dbi_user

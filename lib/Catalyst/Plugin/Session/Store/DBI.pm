@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -173,13 +173,22 @@ sub _session_dbic_connect {
             # use a DBIC/CDBI class
             my $class = $cfg->{dbi_dbh};
             my $dbh;
-            eval { $dbh = $class->storage->dbh };
+            
+            # DBIC Schema support
+            eval { $dbh = $c->model($class)->schema->storage->dbh };
             if ($@) {
-                eval { $dbh = $class->db_Main };
+
+                # Class-based DBIC support
+                eval { $dbh = $class->storage->dbh };
                 if ($@) {
-                    Catalyst::Exception->throw( message =>
+
+                    # CDBI support
+                    eval { $dbh = $class->db_Main };
+                    if ($@) {
+                        Catalyst::Exception->throw( message =>
                               "$class does not appear to be a DBIx::Class or "
                             . "Class::DBI model: $@" );
+                    }
                 }
             }
             $c->_session_dbh($dbh);
@@ -303,9 +312,11 @@ cleanup.
 =head2 dbi_dbh
 
 Pass in an existing $dbh or the class name of a L<DBIx::Class>
-or L<Class::DBI> model.  This method is recommended if you have other
-database code in your application as it will avoid opening additional
-connections.
+or L<Class::DBI> model.  DBIx::Class schema is also supported by setting
+dbi_dbh to the name of your schema model.
+
+This method is recommended if you have other database code in your
+application as it will avoid opening additional connections.
 
 =head2 dbi_dsn
 
