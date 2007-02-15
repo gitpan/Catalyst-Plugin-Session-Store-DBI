@@ -2,7 +2,6 @@ use strict;
 use Module::Build;
 
 my $build = Module::Build->new(
-    create_makefile_pl => 'passthrough',
     license            => 'perl',
     module_name        => 'Catalyst::Plugin::Session::Store::DBI',
     requires           => { 

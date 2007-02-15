@@ -19,6 +19,12 @@ BEGIN {
     eval { require DBD::SQLite }
       or plan skip_all => "DBD::SQLite is required for this test";
 
+    eval { require DBIx::Class }
+      or plan skip_all => "DBIx::Class is required for this test";
+      
+    eval { require Catalyst::Model::DBIC::Schema }
+      or plan skip_all => 'Catalyst::Model::DBIC::Schema is required for this test';
+
     plan tests => 30;
 }
 
@@ -34,7 +40,7 @@ unless ( -e $db_file ) {
 }
 
 use lib "$FindBin::Bin/lib";
-use Test::WWW::Mechanize::Catalyst "TestApp";
+use Test::WWW::Mechanize::Catalyst "TestAppDBICSchema";
 
 my $ua1 = Test::WWW::Mechanize::Catalyst->new;
 my $ua2 = Test::WWW::Mechanize::Catalyst->new;

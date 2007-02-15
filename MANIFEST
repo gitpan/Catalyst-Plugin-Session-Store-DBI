@@ -4,15 +4,19 @@ lib/Catalyst/Plugin/Session/Store/DBI.pm
 Makefile.PL
 MANIFEST			This list of files
 META.yml
+README
 t/01use.t
 t/02pod.t
 t/03podcoverage.t
 t/04dbi.t
 t/05cdbi.t
 t/06dbic.t
+t/07dbic_schema.t
 t/lib/TestApp.pm
 t/lib/TestAppCDBI.pm
 t/lib/TestAppCDBI/Model/CDBI.pm
 t/lib/TestAppDBIC.pm
 t/lib/TestAppDBIC/Model/DBIC.pm
-README
+t/lib/TestAppDBICSchema.pm
+t/lib/TestAppDBICSchema/Model/DBIC.pm
+t/lib/TestAppDBICSchema/Schema.pm

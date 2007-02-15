@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -175,22 +175,49 @@ sub _session_dbic_connect {
             my $dbh;
             
             # DBIC Schema support
-            eval { $dbh = $c->model($class)->schema->storage->dbh };
-            if ($@) {
-
-                # Class-based DBIC support
-                eval { $dbh = $class->storage->dbh };
+            if (   $c->model($class) 
+                && $c->model($class)->isa('Catalyst::Model::DBIC::Schema')
+            ) {
+                eval { $dbh = $c->model($class)->schema->storage->dbh };
                 if ($@) {
-
-                    # CDBI support
-                    eval { $dbh = $class->db_Main };
-                    if ($@) {
-                        Catalyst::Exception->throw( message =>
-                              "$class does not appear to be a DBIx::Class or "
-                            . "Class::DBI model: $@" );
-                    }
+                    Catalyst::Exception->throw( 
+                        message => "Unable to get a handle from "
+                                 . "DBIx::Class Schema model '$class': $@"
+                    );
                 }
             }
+            
+            # Class-based DBIC support
+            elsif ( $c->model($class)
+                 && $c->model($class)->isa('DBIx::Class')
+            ) {
+                eval { $dbh = $class->storage->dbh };
+                if ($@) {
+                    Catalyst::Exception->throw( 
+                        message => "Unable to get a handle from "
+                                 . "DBIx::Class model '$class': $@"
+                    );
+                }
+            }
+            
+            # CDBI support
+            elsif ( $class->isa('Class::DBI') ) {
+                eval { $dbh = $class->db_Main };
+                if ($@) {
+                    Catalyst::Exception->throw( 
+                        message => "Unable to get a handle from "
+                                 . "Class::DBI model '$class': $@"
+                    );
+                }
+            }
+            else {
+                Catalyst::Exception->throw( 
+                    message => "Unable to get a handle from "
+                             . "model '$class': Does not appear "
+                             . "to be a DBIx::Class or Class::DBI model"
+                );
+            }
+            
             $c->_session_dbh($dbh);
         }
     }

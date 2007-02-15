@@ -1,4 +1,4 @@
-package TestAppCDBI::Model::DBIC;
+package TestAppDBIC::Model::DBIC;
 
 use base 'DBIx::Class';
 use FindBin;

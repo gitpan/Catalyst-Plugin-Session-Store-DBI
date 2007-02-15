@@ -1,4 +1,4 @@
-package TestAppDBIC;
+package TestAppDBICSchema;
 
 use strict;
 use Catalyst;
@@ -10,7 +10,7 @@ __PACKAGE__->config(
     name    => __PACKAGE__,
     session => {
         expires => 3600,
-        dbi_dbh => 'TestAppDBIC::Model::DBIC',
+        dbi_dbh => 'TestAppDBICSchema::Model::DBIC',
     }
 );
 

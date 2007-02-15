@@ -25,7 +25,16 @@ BEGIN {
     plan tests => 30;
 }
 
-# database already exists from previous test
+# create the database
+my $db_file = "$FindBin::Bin/tmp/session.db";
+unless ( -e $db_file ) {
+    mkdir "$FindBin::Bin/tmp" or die $!;
+    my $sql =
+      'CREATE TABLE sessions (id TEXT PRIMARY KEY, session_data TEXT, expires INT);';
+    my $dbh = DBI->connect("dbi:SQLite:$db_file") or die $DBI::errstr;
+    $dbh->do($sql);
+    $dbh->disconnect;
+}
 
 use lib "$FindBin::Bin/lib";
 use Test::WWW::Mechanize::Catalyst "TestAppDBIC";
@@ -73,3 +82,6 @@ $_->get_ok( "http://localhost/page", "get main page" ) for $ua1, $ua2;
 
 $ua1->content_contains( "please login", "ua1 not logged in" );
 $ua2->content_contains( "please login", "ua2 not logged in" );
+
+# Clean up
+rmtree "$FindBin::Bin/tmp";
