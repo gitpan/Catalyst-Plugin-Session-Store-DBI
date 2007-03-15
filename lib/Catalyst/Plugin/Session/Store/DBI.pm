@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -170,7 +170,7 @@ sub _session_dbic_connect {
         }
         else {
 
-            # use a DBIC/CDBI class
+            # use a DBIC/CDBI/RDBO class
             my $class = $cfg->{dbi_dbh};
             my $dbh;
             
@@ -189,7 +189,7 @@ sub _session_dbic_connect {
             
             # Class-based DBIC support
             elsif ( $c->model($class)
-                 && $c->model($class)->isa('DBIx::Class')
+                 && $c->model($class)->isa('DBIx::Class::DB')
             ) {
                 eval { $dbh = $class->storage->dbh };
                 if ($@) {
@@ -210,6 +210,18 @@ sub _session_dbic_connect {
                     );
                 }
             }
+            
+            # RDBO support
+            elsif ( $class->isa('Rose::DB::Object') ) {
+                eval { $dbh = $class->new->dbh };
+                if ($@) {
+                    Catalyst::Exception->throw(
+                        message => "Unable to get a handle from "
+                                 . "Rose::DB::Object '$class': $@"
+                    );
+                }
+            }
+            
             else {
                 Catalyst::Exception->throw( 
                     message => "Unable to get a handle from "

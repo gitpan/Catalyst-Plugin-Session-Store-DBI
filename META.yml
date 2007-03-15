@@ -1,6 +1,6 @@
 ---
 name: Catalyst-Plugin-Session-Store-DBI
-version: 0.08
+version: 0.09
 author:
   - 'Andy Grundman, <andy@hybridized.org>'
 abstract: Store your sessions in a database
@@ -16,7 +16,7 @@ requires:
 provides:
   Catalyst::Plugin::Session::Store::DBI:
     file: lib/Catalyst/Plugin/Session/Store/DBI.pm
-    version: 0.08
+    version: 0.09
 generated_by: Module::Build version 0.2806
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

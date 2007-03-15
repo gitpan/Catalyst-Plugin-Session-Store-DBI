@@ -1,5 +1,9 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.09	2007-03-14 22:00:00
+        - Added support for using a Rose::DB::Object to get the dbh.
+        (Peter Karman)
+
 0.08	2007-02-15 11:00:00
         - Fixed DBIC tests.
         - Added DBIC Schema tests.
