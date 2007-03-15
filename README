@@ -47,9 +47,9 @@ CONFIGURATION
     session cleanup.
 
   dbi_dbh
-    Pass in an existing $dbh or the class name of a DBIx::Class or
-    Class::DBI model. DBIx::Class schema is also supported by setting
-    dbi_dbh to the name of your schema model.
+    Set this to an existing $dbh or the class name of a DBIx::Class,
+    Class::DBI, or Rose::DB::Object model. DBIx::Class schema is also
+    supported by setting dbi_dbh to the name of your schema model.
 
     This method is recommended if you have other database code in your
     application as it will avoid opening additional connections.

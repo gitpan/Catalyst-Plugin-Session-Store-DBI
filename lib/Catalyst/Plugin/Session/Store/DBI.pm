@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
@@ -213,7 +213,7 @@ sub _session_dbic_connect {
             
             # RDBO support
             elsif ( $class->isa('Rose::DB::Object') ) {
-                eval { $dbh = $class->new->dbh };
+                eval { $dbh = $class->new->db->retain_dbh };
                 if ($@) {
                     Catalyst::Exception->throw(
                         message => "Unable to get a handle from "
@@ -226,7 +226,8 @@ sub _session_dbic_connect {
                 Catalyst::Exception->throw( 
                     message => "Unable to get a handle from "
                              . "model '$class': Does not appear "
-                             . "to be a DBIx::Class or Class::DBI model"
+                             . "to be a DBIx::Class, Class::DBI, "
+                             . "or Rose::DB::Object class"
                 );
             }
             
@@ -350,9 +351,9 @@ cleanup.
 
 =head2 dbi_dbh
 
-Pass in an existing $dbh or the class name of a L<DBIx::Class>
-or L<Class::DBI> model.  DBIx::Class schema is also supported by setting
-dbi_dbh to the name of your schema model.
+Set this to an existing $dbh or the class name of a L<DBIx::Class>,
+L<Class::DBI>, or L<Rose::DB::Object> model.  DBIx::Class schema is also
+supported by setting dbi_dbh to the name of your schema model.
 
 This method is recommended if you have other database code in your
 application as it will avoid opening additional connections.
