@@ -8,8 +8,9 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
+__PACKAGE__->mk_classdata('_session_sql');
 __PACKAGE__->mk_classdata('_session_dbh');
 __PACKAGE__->mk_classdata('_sth_get_session_data');
 __PACKAGE__->mk_classdata('_sth_get_expires');
@@ -127,6 +128,27 @@ sub setup_session {
                      . 'please configure dbi_dbh or dbi_dsn'
         );
     }
+    
+    # Pre-generate all SQL statements
+    my $table = $c->config->{session}->{dbi_table};
+    $c->_session_sql( {
+        get_session_data        =>
+            "SELECT session_data FROM $table WHERE id = ?",
+        get_expires             =>
+            "SELECT expires FROM $table WHERE id = ?",
+        check_existing          =>
+            "SELECT 1 FROM $table WHERE id = ?",
+        update_session          =>
+            "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?",
+        insert_session          =>
+            "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)",
+        update_expires          =>
+            "UPDATE $table SET expires = ? WHERE id = ?",
+        delete_session          =>
+            "DELETE FROM $table WHERE id = ?",
+        delete_expired_sessions =>
+            "DELETE FROM $table WHERE expires IS NOT NULL AND expires < ?",
+    } );
 }
 
 sub _session_dbi_connect {
@@ -240,34 +262,27 @@ sub _session_dbic_connect {
 sub _session_sth {
     my ( $c, $key ) = @_;
 
-    my $table = $c->config->{session}->{dbi_table};
-
-    my %sql = (
-        get_session_data        =>
-            "SELECT session_data FROM $table WHERE id = ?",
-        get_expires             =>
-            "SELECT expires FROM $table WHERE id = ?",
-        check_existing          =>
-            "SELECT 1 FROM $table WHERE id = ?",
-        update_session          =>
-            "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?",
-        insert_session          =>
-            "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)",
-        update_expires          =>
-            "UPDATE $table SET expires = ? WHERE id = ?",
-        delete_session          =>
-            "DELETE FROM $table WHERE id = ?",
-        delete_expired_sessions =>
-            "DELETE FROM $table WHERE expires IS NOT NULL AND expires < ?",
-    );
-
-    if ( $sql{$key} ) {
+    if ( my $sql = $c->_session_sql->{$key} ) {
         my $accessor = "_sth_$key";
-        if ( !defined $c->$accessor ) {
-            $c->$accessor( $c->_session_dbh->prepare( $sql{$key} ) );
+        
+        if ( defined $c->$accessor ) {
+            
+            # Check for the 'morning bug', where the dbh may have gone away
+            # while we still have cached sth's using it.
+            if ( $c->$accessor->{Database} ne $c->_session_dbh ) {
+                # The sth has an old dbh, so we need to prepare it again
+                if ( $c->$accessor->{Active} ) {
+                    $c->$accessor->finish;
+                }
+            }
+            else {
+                return $c->$accessor;
+            }
         }
-        return $c->$accessor;
+        
+        return $c->$accessor( $c->_session_dbh->prepare( $sql ) );
     }
+    
     return;
 }
 
@@ -275,18 +290,8 @@ sub _session_sth {
 sub DESTROY {
     my $c = shift;
     $c->NEXT::DESTROY(@_);
-
-    my @handles = qw/
-        get_session_data
-        get_expires
-        check_existing
-        update_session
-        insert_session
-        update_expires
-        delete_session
-        delete_expired_sessions/;
-
-    for my $key (@handles) {
+    
+    for my $key ( keys %{ $c->_session_sql } ) {
         my $accessor = "_sth_$key";
         if ( defined $c->$accessor && $c->$accessor->{Active} ) {
             $c->$accessor->finish;

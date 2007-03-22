@@ -1,5 +1,10 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.11    2007-03-22 17:00:00
+        - Reset cached statement handles if the dbh goes away or changes.
+          (Peter Karman)
+        - Pre-generate all SQL statements at startup.
+
 0.10    2007-03-15 12:00:00
         - Fixed Rose::DB::Object dbh call.
         - Forgot to document Rose::DB::Object support.
