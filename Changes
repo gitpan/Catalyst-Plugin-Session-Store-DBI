@@ -1,5 +1,9 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.12    2007-10-05 11:00:00
+        - Added support for Catalyst::Model::DBI models. (Geoffrey Giesemann)
+        - Switched to Module::Install.
+
 0.11    2007-03-22 17:00:00
         - Reset cached statement handles if the dbh goes away or changes.
           (Peter Karman)

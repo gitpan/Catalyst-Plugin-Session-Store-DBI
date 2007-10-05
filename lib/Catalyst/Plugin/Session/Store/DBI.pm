@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 __PACKAGE__->mk_classdata('_session_sql');
 __PACKAGE__->mk_classdata('_session_dbh');
@@ -243,6 +243,19 @@ sub _session_dbic_connect {
                     );
                 }
             }
+
+            # Model::DBI support
+            elsif ( $c->model($class)
+                 && $c->model($class)->isa('Catalyst::Model::DBI')
+            ) {
+                eval { $dbh = $c->model($class)->dbh };
+                if ($@) {
+                    Catalyst::Exception->throw(
+                        message => "Unable to get a handle from "
+                                 . "DBI model '$class': $@"
+                    );
+                }
+            }
             
             else {
                 Catalyst::Exception->throw( 
@@ -330,7 +343,7 @@ Catalyst::Plugin::Session::Store::DBI - Store your sessions in a database
     # Or use an existing database handle from a DBIC/CDBI class
     MyApp->config->{session} = {
         expires   => 3600,
-        dbi_dbh   => 'MyApp::M::DBIC',
+        dbi_dbh   => 'DBIC', # which means MyApp::Model::DBIC
         dbi_table => 'sessions',
     };
 
@@ -357,8 +370,9 @@ cleanup.
 =head2 dbi_dbh
 
 Set this to an existing $dbh or the class name of a L<DBIx::Class>,
-L<Class::DBI>, or L<Rose::DB::Object> model.  DBIx::Class schema is also
-supported by setting dbi_dbh to the name of your schema model.
+L<Class::DBI>, L<Rose::DB::Object>, or L<Catalyst::Model::DBI> model. 
+DBIx::Class schema is also supported by setting dbi_dbh to the name of
+your schema model.
 
 This method is recommended if you have other database code in your
 application as it will avoid opening additional connections.

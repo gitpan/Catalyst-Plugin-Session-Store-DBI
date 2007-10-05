@@ -25,7 +25,7 @@ SYNOPSIS
         # Or use an existing database handle from a DBIC/CDBI class
         MyApp->config->{session} = {
             expires   => 3600,
-            dbi_dbh   => 'MyApp::M::DBIC',
+            dbi_dbh   => 'DBIC', # which means MyApp::Model::DBIC
             dbi_table => 'sessions',
         };
 
@@ -48,8 +48,9 @@ CONFIGURATION
 
   dbi_dbh
     Set this to an existing $dbh or the class name of a DBIx::Class,
-    Class::DBI, or Rose::DB::Object model. DBIx::Class schema is also
-    supported by setting dbi_dbh to the name of your schema model.
+    Class::DBI, Rose::DB::Object, or Catalyst::Model::DBI model. DBIx::Class
+    schema is also supported by setting dbi_dbh to the name of your schema
+    model.
 
     This method is recommended if you have other database code in your
     application as it will avoid opening additional connections.
