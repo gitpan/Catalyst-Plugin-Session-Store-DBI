@@ -1,5 +1,8 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.13    2008-04-29 08:30:00
+        - Fixed ping() check to work properly. (Olivier Thauvin)
+
 0.12    2007-10-05 11:00:00
         - Added support for Catalyst::Model::DBI models. (Geoffrey Giesemann)
         - Switched to Module::Install.

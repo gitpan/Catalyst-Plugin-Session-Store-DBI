@@ -8,7 +8,7 @@ use MIME::Base64;
 use NEXT;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 __PACKAGE__->mk_classdata('_session_sql');
 __PACKAGE__->mk_classdata('_session_dbh');
@@ -103,7 +103,7 @@ sub prepare {
     }
     else {
         # make sure the database is still connected
-        eval { $c->_session_dbh->ping };
+        eval { $c->_session_dbh->ping or die "dbh->ping failed" };
         if ($@) {
             # reconnect
             $c->_session_dbi_connect();
