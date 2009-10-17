@@ -8,7 +8,7 @@ our $VERSION = '0.01';
 
 __PACKAGE__->config(
     name    => __PACKAGE__,
-    session => {
+    'Plugin::Session' => {
         expires => 3600,
         dbi_dbh => 'TestAppCDBI::Model::CDBI',
     }

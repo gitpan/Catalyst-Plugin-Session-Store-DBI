@@ -11,8 +11,7 @@ if ( !-e "$FindBin::Bin/../MANIFEST.SKIP" ) {
 else {
     eval { require Test::Perl::Critic };
     if ( $@ ) {
-        plan tests => 1;
-        fail( 'You must install Test::Perl::Critic to run 04critic.t' );
+        plan skip_all => 'You must install Test::Perl::Critic to run 04critic.t';
         exit;
     }
 }

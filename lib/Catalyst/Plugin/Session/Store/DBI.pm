@@ -5,10 +5,10 @@ use warnings;
 use base qw/Class::Data::Inheritable Catalyst::Plugin::Session::Store/;
 use DBI;
 use MIME::Base64;
-use NEXT;
+use MRO::Compat;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.13';
+our $VERSION = '0.15';
 
 __PACKAGE__->mk_classdata('_session_sql');
 __PACKAGE__->mk_classdata('_session_dbh');
@@ -95,7 +95,7 @@ sub delete_expired_sessions {
 sub prepare {
     my $c = shift;
 
-    my $cfg = $c->config->{session};
+    my $cfg = $c->_session_plugin_config;
 
     # If using DBIC/CDBI, always grab their dbh
     if ( $cfg->{dbi_dbh} ) {
@@ -110,18 +110,18 @@ sub prepare {
         }
     }
 
-    $c->NEXT::prepare(@_);
+    $c->maybe::next::method(@_);
 }
 
 sub setup_session {
     my $c = shift;
 
-    $c->NEXT::setup_session(@_);
+    $c->maybe::next::method(@_);
 
-    $c->config->{session}->{dbi_table} ||= 'sessions';
+    $c->_session_plugin_config->{dbi_table} ||= 'sessions';
     
-    unless ( $c->config->{session}->{dbi_dbh} 
-          || $c->config->{session}->{dbi_dsn} 
+    unless ( $c->_session_plugin_config->{dbi_dbh} 
+          || $c->_session_plugin_config->{dbi_dsn} 
     ) {
         Catalyst::Exception->throw( 
             message => 'Session::Store::DBI: No session configuration found, '
@@ -130,7 +130,7 @@ sub setup_session {
     }
     
     # Pre-generate all SQL statements
-    my $table = $c->config->{session}->{dbi_table};
+    my $table = $c->_session_plugin_config->{dbi_table};
     $c->_session_sql( {
         get_session_data        =>
             "SELECT session_data FROM $table WHERE id = ?",
@@ -154,7 +154,7 @@ sub setup_session {
 sub _session_dbi_connect {
     my $c = shift;
 
-    my $cfg = $c->config->{session};
+    my $cfg = $c->_session_plugin_config;
 
     if ( $cfg->{dbi_dsn} ) {
 
@@ -178,7 +178,7 @@ sub _session_dbi_connect {
 sub _session_dbic_connect {
     my $c = shift;
 
-    my $cfg = $c->config->{session};
+    my $cfg = $c->_session_plugin_config;
 
     if ( $cfg->{dbi_dbh} ) {
         if ( ref $cfg->{dbi_dbh} ) {
@@ -213,7 +213,7 @@ sub _session_dbic_connect {
             elsif ( $c->model($class)
                  && $c->model($class)->isa('DBIx::Class::DB')
             ) {
-                eval { $dbh = $class->storage->dbh };
+                eval { $dbh = $c->model($class)->storage->dbh };
                 if ($@) {
                     Catalyst::Exception->throw( 
                         message => "Unable to get a handle from "
@@ -302,7 +302,7 @@ sub _session_sth {
 # close any active sth's to avoid warnings
 sub DESTROY {
     my $c = shift;
-    $c->NEXT::DESTROY(@_);
+    $c->maybe::next::method(@_);
     
     for my $key ( keys %{ $c->_session_sql } ) {
         my $accessor = "_sth_$key";
@@ -332,20 +332,20 @@ Catalyst::Plugin::Session::Store::DBI - Store your sessions in a database
     use Catalyst qw/Session Session::Store::DBI Session::State::Cookie/;
     
     # Connect directly to the database
-    MyApp->config->{session} = {
+    MyApp->config('Plugin::Session' => {
         expires   => 3600,
         dbi_dsn   => 'dbi:mysql:database',
         dbi_user  => 'foo',
         dbi_pass  => 'bar',
         dbi_table => 'sessions',
-    };
+    });
     
     # Or use an existing database handle from a DBIC/CDBI class
-    MyApp->config->{session} = {
+    MyApp->config('Plugin::Session' => {
         expires   => 3600,
         dbi_dbh   => 'DBIC', # which means MyApp::Model::DBIC
         dbi_table => 'sessions',
-    };
+    });
 
     # ... in an action:
     $c->session->{foo} = 'bar'; # will be saved
@@ -356,7 +356,7 @@ This storage module will store session data in a database using DBI.
 
 =head1 CONFIGURATION
 
-These parameters are placed in the configuration hash under the C<session>
+These parameters are placed in the configuration hash under the C<Plugin::Session>
 key.
 
 =head2 expires
@@ -413,6 +413,10 @@ SHA-1 or MD5 are used, but SHA-256 will need all those characters.
 
 The 'session_data' column should be a long text field.  Session data is
 encoded using Base64 before being stored in the database.
+
+Note that MySQL TEXT fields only store 64KB, so if your session data
+will exceed that size you'll want to move to MEDIUMTEXT, MEDIUMBLOB,
+or larger.
 
 The 'expires' column stores the future expiration time of the session.  This
 may be null for per-user and flash sessions.

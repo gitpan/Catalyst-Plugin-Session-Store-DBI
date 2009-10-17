@@ -1,5 +1,14 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.15    2009-10-17 19:29:30
+        - Fixed to work with the new config key for sessions, Plugin::Session
+          (Dave Rolsky)
+        - Fix a couple of problems and warnings in the test suite.
+        - Stop treating model names as class names.
+
+0.14    2008-09-17 09:53:47
+        - Added a POD warning about MySQL TEXT field size. (Jay Hannah)
+
 0.13    2008-04-29 08:30:00
         - Fixed ping() check to work properly. (Olivier Thauvin)
 
