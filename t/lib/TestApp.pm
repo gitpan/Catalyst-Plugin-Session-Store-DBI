@@ -12,6 +12,9 @@ __PACKAGE__->config(
     'Plugin::Session' => {
         expires => 3600,
         dbi_dsn => "dbi:SQLite:$db_file",
+        dbi_table => 'sessions',
+        dbi_id_field => 'id',
+        dbi_data_field => 's_data',
     }
 );
 

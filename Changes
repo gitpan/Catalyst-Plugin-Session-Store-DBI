@@ -1,5 +1,8 @@
 Revision history for Perl extension Catalyst::Plugin::Session::Store::DBI
 
+0.16    2010-03-23 22:46:37
+        - Make the table metadata configurable (wreis).
+
 0.15    2009-10-17 19:29:30
         - Fixed to work with the new config key for sessions, Plugin::Session
           (Dave Rolsky)

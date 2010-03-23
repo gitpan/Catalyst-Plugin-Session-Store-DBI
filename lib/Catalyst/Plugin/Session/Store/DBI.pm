@@ -8,7 +8,7 @@ use MIME::Base64;
 use MRO::Compat;
 use Storable qw/nfreeze thaw/;
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 
 __PACKAGE__->mk_classdata('_session_sql');
 __PACKAGE__->mk_classdata('_session_dbh');
@@ -113,16 +113,31 @@ sub prepare {
     $c->maybe::next::method(@_);
 }
 
+
+sub session_store_dbi_table {
+    return shift->_session_plugin_config->{'dbi_table'} || 'sessions';
+}
+
+sub session_store_dbi_id_field {
+    return shift->_session_plugin_config->{'dbi_id_field'} || 'id';
+}
+
+sub session_store_dbi_data_field {
+    return shift->_session_plugin_config->{'dbi_data_field'} || 'session_data';
+}
+
+sub session_store_dbi_expires_field {
+    return shift->_session_plugin_config->{'dbi_expires_field'} || 'expires';
+}
+
 sub setup_session {
     my $c = shift;
 
     $c->maybe::next::method(@_);
 
-    $c->_session_plugin_config->{dbi_table} ||= 'sessions';
+    my $cfg = $c->_session_plugin_config;
     
-    unless ( $c->_session_plugin_config->{dbi_dbh} 
-          || $c->_session_plugin_config->{dbi_dsn} 
-    ) {
+    unless ( $cfg->{dbi_dbh} || $cfg->{dbi_dsn} ) {
         Catalyst::Exception->throw( 
             message => 'Session::Store::DBI: No session configuration found, '
                      . 'please configure dbi_dbh or dbi_dsn'
@@ -130,24 +145,26 @@ sub setup_session {
     }
     
     # Pre-generate all SQL statements
-    my $table = $c->_session_plugin_config->{dbi_table};
+    my ( $table, $id_field, $data_field, $expires_field ) =
+        map { $c->${\"session_store_$_"} }
+            qw/dbi_table dbi_id_field dbi_data_field dbi_expires_field/;
     $c->_session_sql( {
         get_session_data        =>
-            "SELECT session_data FROM $table WHERE id = ?",
+            "SELECT $data_field FROM $table WHERE $id_field = ?",
         get_expires             =>
-            "SELECT expires FROM $table WHERE id = ?",
+            "SELECT $expires_field FROM $table WHERE $id_field = ?",
         check_existing          =>
-            "SELECT 1 FROM $table WHERE id = ?",
+            "SELECT 1 FROM $table WHERE $id_field = ?",
         update_session          =>
-            "UPDATE $table SET session_data = ?, expires = ? WHERE id = ?",
+            "UPDATE $table SET $data_field = ?, $expires_field = ? WHERE $id_field = ?",
         insert_session          =>
-            "INSERT INTO $table (session_data, expires, id) VALUES (?, ?, ?)",
+            "INSERT INTO $table ($data_field, $expires_field, $id_field) VALUES (?, ?, ?)",
         update_expires          =>
-            "UPDATE $table SET expires = ? WHERE id = ?",
+            "UPDATE $table SET $expires_field = ? WHERE $id_field = ?",
         delete_session          =>
-            "DELETE FROM $table WHERE id = ?",
+            "DELETE FROM $table WHERE $id_field = ?",
         delete_expired_sessions =>
-            "DELETE FROM $table WHERE expires IS NOT NULL AND expires < ?",
+            "DELETE FROM $table WHERE $expires_field IS NOT NULL AND $expires_field < ?",
     } );
 }
 
@@ -338,6 +355,9 @@ Catalyst::Plugin::Session::Store::DBI - Store your sessions in a database
         dbi_user  => 'foo',
         dbi_pass  => 'bar',
         dbi_table => 'sessions',
+        dbi_id_field => 'id',
+        dbi_data_field => 'session_data',
+        dbi_expires_field => 'expires',
     });
     
     # Or use an existing database handle from a DBIC/CDBI class
@@ -345,6 +365,9 @@ Catalyst::Plugin::Session::Store::DBI - Store your sessions in a database
         expires   => 3600,
         dbi_dbh   => 'DBIC', # which means MyApp::Model::DBIC
         dbi_table => 'sessions',
+        dbi_id_field => 'id',
+        dbi_data_field => 'session_data',
+        dbi_expires_field => 'expires',
     });
 
     # ... in an action:
@@ -397,6 +420,21 @@ This table must have at least 3 columns, id, session_data, and expires.
 See the Schema section below for additional details.  The table name defaults
 to 'sessions'.
 
+=head2 dbi_id_field
+
+The name of the field on your sessions table which stores the session ID.
+Defaults to C<id>.
+
+=head2 dbi_data_field
+
+The name of the field on your sessions table which stores session data.
+Defaults to C<session_data>.
+
+=head2 dbi_expires_field
+
+The name of the field on your sessions table which stores the expiration
+time of the session. Defaults to C<expires>.
+
 =head1 SCHEMA
 
 Your 'sessions' table must contain at minimum the following 3 columns:
@@ -421,6 +459,9 @@ or larger.
 The 'expires' column stores the future expiration time of the session.  This
 may be null for per-user and flash sessions.
 
+NOTE: Your column names do not need to match with this schema, use config to
+set custom column names.
+
 =head1 METHODS
 
 =head2 get_session_data
@@ -435,6 +476,22 @@ may be null for per-user and flash sessions.
 
 These are implementations of the required methods for a store. See
 L<Catalyst::Plugin::Session::Store>.
+
+=head2 session_store_dbi_table
+
+Return the configured table name.
+
+=head2 session_store_dbi_id_field
+
+Return the configured ID field name.
+
+=head2 session_store_dbi_data_field
+
+Return the configured data field name.
+
+=head2 session_store_dbi_expires_field
+
+Return the configured expires field name.
 
 =head1 INTERNAL METHODS
 
@@ -451,6 +508,10 @@ L<Catalyst>, L<Catalyst::Plugin::Session>, L<Catalyst::Plugin::Scheduler>
 Andy Grundman, <andy@hybridized.org>
 
 =head1 COPYRIGHT
+
+Copyright (c) 2005 - 2009
+the Catalyst::Plugin::Session::Store::DBI L</AUTHOR>
+as listed above.
 
 This program is free software, you can redistribute it and/or modify it
 under the same terms as Perl itself.

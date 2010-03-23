@@ -27,7 +27,7 @@ my $db_file = "$FindBin::Bin/tmp/session.db";
 unless ( -e $db_file ) {
     mkdir "$FindBin::Bin/tmp" or die $!;
     my $sql =
-      'CREATE TABLE sessions (id TEXT PRIMARY KEY, session_data TEXT, expires INT);';
+      'CREATE TABLE sessions (id TEXT PRIMARY KEY, s_data TEXT, expires INT);';
     my $dbh = DBI->connect("dbi:SQLite:$db_file") or die $DBI::errstr;
     $dbh->do($sql);
     $dbh->disconnect;
